@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 from openai import OpenAI
 
@@ -13,21 +14,141 @@ st.set_page_config(
 
 MODEL = "gpt-4o-mini"
 
-SYSTEM_PROMPT = """
+# =========================
+# 패널 페르소나
+# =========================
+PERSONAS = {
+    "all": {
+        "emoji": "✨",
+        "name": "통합 패널",
+        "role": "여러 분야의 관점을 엮어 설명하는 교양 패널",
+        "desc": "질문에 따라 역사, 과학, 문화, 사회적 맥락을 함께 엮어 균형 있게 답변합니다.",
+        "tone": "여러 패널이 함께 대화하듯, 핵심 관점을 나누어 설명한다.",
+        "examples": [
+            "왜 사람들은 커피를 마시면 집중이 잘 된다고 느낄까요?",
+            "왜 어떤 노래는 계속 머릿속에서 반복될까요?",
+            "인간은 왜 쓸데없는 이야기에 끌릴까요?",
+        ],
+    },
+    "architect": {
+        "emoji": "🏛️",
+        "name": "건축학자",
+        "role": "공간, 도시, 건축, 생활환경의 관점으로 설명하는 건축학자",
+        "desc": "공간 구조, 도시의 흐름, 건축 양식, 사람이 공간을 사용하는 방식을 중심으로 답변합니다.",
+        "tone": "공간과 구조를 중심으로, 일상적인 장소 경험과 연결해 설명한다.",
+        "examples": [
+            "왜 오래된 골목은 걷기 좋게 느껴질까요?",
+            "좋은 카페 공간은 왜 편안하게 느껴질까요?",
+            "도시는 왜 점점 비슷한 모습이 되어갈까요?",
+        ],
+    },
+    "physicist": {
+        "emoji": "🧲",
+        "name": "물리학자",
+        "role": "자연현상, 에너지, 시간, 빛, 소리의 원리를 설명하는 물리학자",
+        "desc": "일상 속 현상을 물리 법칙과 원리로 쉽게 풀어 설명합니다.",
+        "tone": "어려운 수식보다는 직관적인 비유를 사용해 원리를 설명한다.",
+        "examples": [
+            "하늘은 왜 파랗게 보이나요?",
+            "전자레인지는 음식을 어떻게 데우나요?",
+            "왜 엘리베이터가 출발할 때 몸이 무겁게 느껴질까요?",
+        ],
+    },
+    "historian": {
+        "emoji": "📜",
+        "name": "역사학자",
+        "role": "사건의 배경, 시대 흐름, 문화적 맥락을 설명하는 역사학자",
+        "desc": "지금의 현상이 과거의 어떤 흐름에서 왔는지 맥락 중심으로 답변합니다.",
+        "tone": "연도 나열보다 시대의 변화와 사람들의 선택을 중심으로 설명한다.",
+        "examples": [
+            "고대 사람들은 시간을 어떻게 측정했을까요?",
+            "커피는 어떻게 전 세계로 퍼졌을까요?",
+            "왜 어떤 도시는 역사적으로 더 빨리 발전했을까요?",
+        ],
+    },
+    "psychologist": {
+        "emoji": "🧠",
+        "name": "심리학자",
+        "role": "인간의 감정, 기억, 행동, 선택을 설명하는 심리학자",
+        "desc": "사람이 왜 그렇게 느끼고 행동하는지 심리와 인지 관점에서 답변합니다.",
+        "tone": "사용자가 자신의 경험과 연결해 이해할 수 있도록 부드럽게 설명한다.",
+        "examples": [
+            "왜 사람은 미룰수록 더 하기 싫어질까요?",
+            "왜 어떤 말은 오래 기억에 남을까요?",
+            "왜 우리는 익숙한 것을 더 안전하다고 느낄까요?",
+        ],
+    },
+    "sociologist": {
+        "emoji": "🌐",
+        "name": "사회학자",
+        "role": "사회 구조, 관계, 문화, 트렌드의 관점으로 설명하는 사회학자",
+        "desc": "개인의 선택처럼 보이는 현상을 사회적 구조와 문화 흐름으로 풀어 설명합니다.",
+        "tone": "개인 문제가 아니라 사회적 조건과 연결해 넓은 시야로 설명한다.",
+        "examples": [
+            "왜 요즘 사람들은 혼자 있는 시간을 더 중요하게 생각할까요?",
+            "유행은 어떻게 만들어질까요?",
+            "왜 특정 세대는 일과 삶의 균형을 더 중요하게 볼까요?",
+        ],
+    },
+    "food_researcher": {
+        "emoji": "🍚",
+        "name": "음식문화 연구자",
+        "role": "음식, 발효, 식문화, 생활사의 관점으로 설명하는 음식문화 연구자",
+        "desc": "음식의 과학적 원리와 문화적 의미를 함께 설명합니다.",
+        "tone": "맛, 생활, 문화, 과학을 함께 엮어 친근하게 설명한다.",
+        "examples": [
+            "김치가 발효되면 몸에 좋은 이유는 무엇인가요?",
+            "왜 국물 음식은 위로가 된다고 느낄까요?",
+            "사람들은 왜 매운맛을 좋아할까요?",
+        ],
+    },
+    "economist": {
+        "emoji": "📈",
+        "name": "경제학자",
+        "role": "선택, 비용, 시장, 소비 행동의 관점으로 설명하는 경제학자",
+        "desc": "사람들의 선택과 사회 현상을 비용, 효용, 인센티브 관점에서 설명합니다.",
+        "tone": "딱딱한 경제 이론보다 일상의 선택 구조를 중심으로 설명한다.",
+        "examples": [
+            "왜 사람들은 한정판에 더 끌릴까요?",
+            "구독 서비스는 왜 이렇게 많아졌을까요?",
+            "가격이 비싸면 왜 더 좋아 보일 때가 있을까요?",
+        ],
+    },
+}
+
+# =========================
+# 공통 시스템 프롬프트
+# =========================
+BASE_SYSTEM_PROMPT = """
 너는 '알쓸챗'이라는 교양형 잡학 챗봇이다.
+사용자가 사소한 궁금증을 물어보면, 알쓸신잡 패널처럼 지적이지만 어렵지 않게 설명한다.
 
-역할:
-- 사용자의 사소한 궁금증을 역사, 과학, 문화, 심리, 사회적 맥락과 연결해 설명한다.
-- 단순히 정답만 말하지 않고, 왜 그런지 이야기처럼 풀어준다.
-- 어려운 개념은 일상적인 비유로 쉽게 설명한다.
+공통 답변 원칙:
 - 한국어로 답변한다.
-
-답변 스타일:
-- 친절하지만 과하게 가볍지 않게 답변한다.
-- 교양 프로그램 패널처럼 흥미롭게 설명한다.
-- 문단을 적절히 나누어 읽기 쉽게 답변한다.
+- 단순한 정보 나열보다 '왜 그런지'를 중심으로 설명한다.
+- 어려운 개념은 일상적인 비유로 쉽게 풀어준다.
+- 너무 장황하지 않게, 하지만 맥락은 충분히 제공한다.
 - 확실하지 않은 내용은 단정하지 않고 확인이 필요하다고 말한다.
 - 마지막에는 사용자가 이어서 물어볼 만한 질문을 한 문장으로 제안한다.
+"""
+
+def build_system_prompt(persona_key):
+    persona = PERSONAS[persona_key]
+
+    return f"""
+{BASE_SYSTEM_PROMPT}
+
+오늘 사용자가 선택한 패널:
+- 이름: {persona["name"]}
+- 역할: {persona["role"]}
+- 답변 관점: {persona["desc"]}
+- 말투/전개 방식: {persona["tone"]}
+
+답변 형식:
+1. 먼저 질문의 핵심을 한두 문장으로 짚는다.
+2. 선택된 패널의 관점으로 원리나 배경을 설명한다.
+3. 필요하다면 다른 분야의 맥락도 짧게 연결한다.
+4. 마지막에 이어서 궁금해할 만한 질문을 하나 제안한다.
 """
 
 # =========================
@@ -132,6 +253,49 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
+    .soft-divider {
+        width: 100%;
+        height: 1px;
+        background-color: #edf0f2;
+        margin: 30px 0 22px 0;
+    }
+
+    /* =========================
+       Persona
+       ========================= */
+
+    .persona-card {
+        background-color: #ffffff;
+        border: 1px solid #edf0f2;
+        border-radius: 28px;
+        padding: 22px 24px;
+        margin: 14px 0 18px 0;
+        box-shadow: 0 8px 24px rgba(25, 31, 40, 0.04);
+    }
+
+    .persona-kicker {
+        font-size: 13px;
+        font-weight: 700;
+        color: #3182f6;
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+    }
+
+    .persona-title {
+        font-size: 20px;
+        font-weight: 850;
+        color: #191f28;
+        letter-spacing: -0.04em;
+        margin-bottom: 8px;
+    }
+
+    .persona-desc {
+        font-size: 14px;
+        line-height: 1.7;
+        color: #6b7684;
+        letter-spacing: -0.02em;
+    }
+
     .question-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -150,18 +314,12 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
-    .soft-divider {
-        width: 100%;
-        height: 1px;
-        background-color: #edf0f2;
-        margin: 30px 0 22px 0;
-    }
-
     /* =========================
-       API Key Input
+       Inputs
        ========================= */
 
-    .stTextInput label {
+    .stTextInput label,
+    .stSelectbox label {
         font-size: 14px !important;
         font-weight: 700 !important;
         color: #4e5968 !important;
@@ -192,110 +350,74 @@ st.markdown(
     }
 
     /* =========================
-       Chat Messages
+       Custom Chat Messages
        ========================= */
 
-    [data-testid="stChatMessage"] {
-        background: transparent !important;
-        padding: 4px 0 !important;
-        margin-bottom: 12px !important;
-        box-shadow: none !important;
-        border: none !important;
+    .message-row {
+        display: flex;
+        width: 100%;
+        margin-bottom: 14px;
     }
 
-    [data-testid="stChatMessageAvatar"] {
-        display: none !important;
+    .message-row.user {
+        justify-content: flex-end;
     }
 
-    [data-testid="stChatMessageContent"] {
-        padding: 0 !important;
+    .message-row.assistant {
+        justify-content: flex-start;
     }
 
-    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {
+    .message-bubble {
         max-width: 78%;
         padding: 14px 16px;
         border-radius: 22px;
         font-size: 15px;
         line-height: 1.75;
         letter-spacing: -0.02em;
+        word-break: keep-all;
+        white-space: pre-wrap;
     }
 
-    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
-        margin: 0;
-        font-size: 15px;
-        line-height: 1.75;
-        letter-spacing: -0.02em;
+    .message-bubble.user {
+        background-color: #3182f6;
+        color: #ffffff;
+        border-top-right-radius: 8px;
+        box-shadow: 0 6px 18px rgba(49, 130, 246, 0.22);
     }
 
-    [data-testid="stChatMessage"]:has([aria-label="assistant avatar"]) {
-        display: flex !important;
-        justify-content: flex-start !important;
-    }
-
-    [data-testid="stChatMessage"]:has([aria-label="assistant avatar"]) [data-testid="stMarkdownContainer"] {
-        background-color: #ffffff !important;
-        border: 1px solid #edf0f2 !important;
-        color: #191f28 !important;
-        border-top-left-radius: 8px !important;
-        box-shadow: 0 6px 18px rgba(25, 31, 40, 0.04) !important;
-    }
-
-    [data-testid="stChatMessage"]:has([aria-label="assistant avatar"]) [data-testid="stMarkdownContainer"] p,
-    [data-testid="stChatMessage"]:has([aria-label="assistant avatar"]) [data-testid="stMarkdownContainer"] li {
-        color: #191f28 !important;
-    }
-
-    [data-testid="stChatMessage"]:has([aria-label="user avatar"]) {
-        display: flex !important;
-        justify-content: flex-end !important;
-    }
-
-    [data-testid="stChatMessage"]:has([aria-label="user avatar"]) [data-testid="stMarkdownContainer"] {
-        background-color: #3182f6 !important;
-        color: #ffffff !important;
-        border-top-right-radius: 8px !important;
-        box-shadow: 0 6px 18px rgba(49, 130, 246, 0.22) !important;
-    }
-
-    [data-testid="stChatMessage"]:has([aria-label="user avatar"]) [data-testid="stMarkdownContainer"] p,
-    [data-testid="stChatMessage"]:has([aria-label="user avatar"]) [data-testid="stMarkdownContainer"] li {
-        color: #ffffff !important;
+    .message-bubble.assistant {
+        background-color: #ffffff;
+        color: #191f28;
+        border: 1px solid #edf0f2;
+        border-top-left-radius: 8px;
+        box-shadow: 0 6px 18px rgba(25, 31, 40, 0.04);
     }
 
     /* =========================
        Custom Chat Input
-       st.chat_input 미사용 버전
        ========================= */
 
-    .chat-input-card {
-        background-color: #ffffff;
-        border: 1px solid #e5e8eb;
-        border-radius: 28px;
-        padding: 14px 16px;
-        margin-top: 24px;
-        box-shadow: 0 12px 36px rgba(25, 31, 40, 0.08);
-    }
-
-    .chat-input-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: #4e5968;
-        letter-spacing: -0.02em;
-        margin-bottom: 10px;
-    }
-
-    /* form 기본 여백 제거 */
     [data-testid="stForm"] {
-        border: none !important;
-        padding: 0 !important;
-        background: transparent !important;
+        border: 1px solid #e5e8eb !important;
+        border-radius: 28px !important;
+        padding: 16px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 12px 36px rgba(25, 31, 40, 0.08) !important;
+        margin-top: 24px !important;
     }
 
     [data-testid="stForm"] div[data-testid="stVerticalBlock"] {
         gap: 0 !important;
     }
 
-    /* 채팅 입력용 text input */
+    .chat-input-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #4e5968;
+        letter-spacing: -0.02em;
+        margin-bottom: 12px;
+    }
+
     div[data-testid="stForm"] .stTextInput input {
         height: 54px !important;
         border-radius: 20px !important;
@@ -312,8 +434,6 @@ st.markdown(
         box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12) !important;
     }
 
-    /* 전송 버튼 */
-    div[data-testid="stForm"] .stButton button,
     div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
         height: 54px !important;
         width: 100% !important;
@@ -327,15 +447,9 @@ st.markdown(
         box-shadow: none !important;
     }
 
-    div[data-testid="stForm"] .stButton button:hover,
     div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover {
         background-color: #1b64da !important;
         color: #ffffff !important;
-    }
-
-    /* 보조 버튼 */
-    .clear-button-wrap {
-        margin-top: 10px;
     }
 
     .stButton button {
@@ -362,6 +476,43 @@ st.markdown(
 )
 
 # =========================
+# 유틸 함수
+# =========================
+def render_message(role, content):
+    safe_content = html.escape(content)
+
+    if role == "user":
+        st.markdown(
+            f"""
+            <div class="message-row user">
+                <div class="message-bubble user">{safe_content}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"""
+            <div class="message-row assistant">
+                <div class="message-bubble assistant">{safe_content}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+def render_assistant_stream(placeholder, content):
+    safe_content = html.escape(content)
+
+    placeholder.markdown(
+        f"""
+        <div class="message-row assistant">
+            <div class="message-bubble assistant">{safe_content}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# =========================
 # 상단 콘텐츠
 # =========================
 st.markdown(
@@ -370,30 +521,59 @@ st.markdown(
         <div class="hero-badge">알아두면 쓸데 있는 대화</div>
         <div class="hero-title">
             궁금한 건 가볍게,<br>
-            답변은 흥미롭게
+            답변은 패널처럼 흥미롭게
         </div>
         <div class="hero-desc">
-            역사, 과학, 심리, 문화, 음식, 일상 속 호기심까지.
-            궁금한 것을 물어보면 여러 분야의 맥락을 엮어
-            쉽게 설명해주는 교양형 챗봇입니다.
+            건축학자, 물리학자, 역사학자, 심리학자처럼
+            서로 다른 관점을 가진 패널에게 질문해보세요.
+            사소한 궁금증도 맥락 있는 이야기로 풀어드립니다.
         </div>
     </section>
     """,
     unsafe_allow_html=True,
 )
 
+# =========================
+# 패널 선택
+# =========================
+persona_keys = list(PERSONAS.keys())
+
+selected_persona_key = st.selectbox(
+    "오늘 질문할 패널을 선택해주세요",
+    options=persona_keys,
+    format_func=lambda key: f'{PERSONAS[key]["emoji"]} {PERSONAS[key]["name"]}',
+)
+
+selected_persona = PERSONAS[selected_persona_key]
+
 st.markdown(
-    """
+    f"""
+    <div class="persona-card">
+        <div class="persona-kicker">오늘의 패널</div>
+        <div class="persona-title">
+            {selected_persona["emoji"]} {selected_persona["name"]}
+        </div>
+        <div class="persona-desc">
+            {selected_persona["desc"]}
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+example_html = ""
+for question in selected_persona["examples"]:
+    example_html += f'<div class="question-chip">{html.escape(question)}</div>'
+
+st.markdown(
+    f"""
     <div class="card">
         <div class="card-title">이런 질문을 해볼 수 있어요</div>
         <div class="card-desc">
-            정답만 짧게 알려주기보다, 왜 그런지 이야기처럼 풀어서 설명해드려요.
+            선택한 패널의 관점에 맞춰 질문 예시가 달라집니다.
         </div>
         <div class="question-grid">
-            <div class="question-chip">왜 사람들은 커피를 마시면 집중이 잘 된다고 느낄까요?</div>
-            <div class="question-chip">고대 사람들은 시간을 어떻게 측정했을까요?</div>
-            <div class="question-chip">왜 어떤 노래는 계속 머릿속에서 반복될까요?</div>
-            <div class="question-chip">김치가 발효되면 몸에 좋은 이유는 무엇인가요?</div>
+            {example_html}
         </div>
     </div>
     """,
@@ -441,22 +621,21 @@ if st.session_state.messages:
     st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    render_message(message["role"], message["content"])
 
 # =========================
-# 채팅 입력 영역
+# 질문 입력
 # =========================
-st.markdown(
-    """
-    <div class="chat-input-card">
-        <div class="chat-input-title">궁금한 것을 물어보세요</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 with st.form("chat_form", clear_on_submit=True):
+    st.markdown(
+        f"""
+        <div class="chat-input-title">
+            {selected_persona["emoji"]} {selected_persona["name"]}에게 물어보기
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     input_col, button_col = st.columns([5, 1.15])
 
     with input_col:
@@ -482,13 +661,12 @@ if submitted and prompt.strip():
         }
     )
 
-    with st.chat_message("user"):
-        st.markdown(user_prompt)
+    render_message("user", user_prompt)
 
     messages_for_api = [
         {
             "role": "system",
-            "content": SYSTEM_PROMPT,
+            "content": build_system_prompt(selected_persona_key),
         },
         *[
             {
@@ -507,11 +685,25 @@ if submitted and prompt.strip():
         )
 
         for chunk in stream:
-            if chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
-    with st.chat_message("assistant"):
-        response = st.write_stream(generate_response)
+    assistant_placeholder = st.empty()
+    response = ""
+
+    try:
+        for chunk in generate_response():
+            response += chunk
+            render_assistant_stream(assistant_placeholder, response)
+
+    except Exception as error:
+        response = (
+            "답변을 생성하는 중 문제가 발생했어요. "
+            "API 키, 모델명, 사용량 한도를 확인해주세요.\n\n"
+            f"오류 내용: {error}"
+        )
+        render_assistant_stream(assistant_placeholder, response)
 
     st.session_state.messages.append(
         {
@@ -524,10 +716,6 @@ if submitted and prompt.strip():
 # 대화 초기화
 # =========================
 if st.session_state.messages:
-    st.markdown('<div class="clear-button-wrap">', unsafe_allow_html=True)
-
     if st.button("대화 초기화"):
         st.session_state.messages = []
         st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
