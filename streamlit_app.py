@@ -8,10 +8,10 @@ st.set_page_config(
     page_title="알쓸챗",
     page_icon="💬",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
-MODEL = "gpt-5.2"
+MODEL = "gpt-4o-mini"
 
 SYSTEM_PROMPT = """
 너는 '알쓸챗'이라는 교양형 잡학 챗봇이다.
@@ -40,7 +40,11 @@ st.markdown(
         color-scheme: light;
     }
 
-    html, body, .stApp {
+    html,
+    body,
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
         background-color: #f9fafb !important;
         color: #191f28 !important;
     }
@@ -50,18 +54,10 @@ st.markdown(
                      "Pretendard", "Noto Sans KR", sans-serif;
     }
 
-    [data-testid="stAppViewContainer"] {
-        background-color: #f9fafb !important;
-    }
-
-    [data-testid="stMain"] {
-        background-color: #f9fafb !important;
-    }
-
     .block-container {
         max-width: 760px;
         padding-top: 56px;
-        padding-bottom: 160px;
+        padding-bottom: 80px;
     }
 
     #MainMenu,
@@ -71,7 +67,7 @@ st.markdown(
     }
 
     /* =========================
-       상단 히어로
+       Header
        ========================= */
 
     .hero {
@@ -109,7 +105,7 @@ st.markdown(
     }
 
     /* =========================
-       카드
+       Card
        ========================= */
 
     .card {
@@ -162,7 +158,7 @@ st.markdown(
     }
 
     /* =========================
-       API 키 입력
+       API Key Input
        ========================= */
 
     .stTextInput label {
@@ -196,7 +192,7 @@ st.markdown(
     }
 
     /* =========================
-       채팅 메시지
+       Chat Messages
        ========================= */
 
     [data-testid="stChatMessage"] {
@@ -231,7 +227,6 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
-    /* AI 말풍선 */
     [data-testid="stChatMessage"]:has([aria-label="assistant avatar"]) {
         display: flex !important;
         justify-content: flex-start !important;
@@ -250,7 +245,6 @@ st.markdown(
         color: #191f28 !important;
     }
 
-    /* 사용자 말풍선 */
     [data-testid="stChatMessage"]:has([aria-label="user avatar"]) {
         display: flex !important;
         justify-content: flex-end !important;
@@ -269,79 +263,92 @@ st.markdown(
     }
 
     /* =========================
-       하단 채팅 입력 영역 수정
+       Custom Chat Input
+       st.chat_input 미사용 버전
        ========================= */
 
-    [data-testid="stBottomBlockContainer"],
-    [data-testid="stChatFloatingInputContainer"],
-    .stChatFloatingInputContainer {
-        background-color: #f9fafb !important;
-        border-top: 1px solid #edf0f2 !important;
-        box-shadow: 0 -8px 24px rgba(25, 31, 40, 0.04) !important;
-        padding: 18px 0 24px 0 !important;
+    .chat-input-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e8eb;
+        border-radius: 28px;
+        padding: 14px 16px;
+        margin-top: 24px;
+        box-shadow: 0 12px 36px rgba(25, 31, 40, 0.08);
     }
 
-    [data-testid="stBottomBlockContainer"] > div,
-    [data-testid="stChatFloatingInputContainer"] > div,
-    .stChatFloatingInputContainer > div {
-        max-width: 760px !important;
-        margin: 0 auto !important;
-        padding-left: 24px !important;
-        padding-right: 24px !important;
+    .chat-input-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #4e5968;
+        letter-spacing: -0.02em;
+        margin-bottom: 10px;
+    }
+
+    /* form 기본 여백 제거 */
+    [data-testid="stForm"] {
+        border: none !important;
+        padding: 0 !important;
         background: transparent !important;
     }
 
-    [data-testid="stChatInput"] {
-        background-color: #ffffff !important;
-        border: 1px solid #e5e8eb !important;
-        border-radius: 24px !important;
-        box-shadow: 0 12px 36px rgba(25, 31, 40, 0.10) !important;
-        padding: 0 !important;
-        overflow: hidden !important;
+    [data-testid="stForm"] div[data-testid="stVerticalBlock"] {
+        gap: 0 !important;
     }
 
-    [data-testid="stChatInput"] > div {
-        background-color: #ffffff !important;
-        border-radius: 24px !important;
-    }
-
-    [data-testid="stChatInput"] textarea {
-        background-color: #ffffff !important;
+    /* 채팅 입력용 text input */
+    div[data-testid="stForm"] .stTextInput input {
+        height: 54px !important;
+        border-radius: 20px !important;
+        border: 1px solid #edf0f2 !important;
+        background-color: #f9fafb !important;
         color: #191f28 !important;
         font-size: 15px !important;
-        letter-spacing: -0.02em !important;
-        padding: 16px 18px !important;
-        min-height: 52px !important;
+        padding: 0 16px !important;
     }
 
-    [data-testid="stChatInput"] textarea::placeholder {
-        color: #8b95a1 !important;
+    div[data-testid="stForm"] .stTextInput input:focus {
+        background-color: #ffffff !important;
+        border-color: #3182f6 !important;
+        box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12) !important;
     }
 
-    [data-testid="stChatInput"] button {
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        border-radius: 999px !important;
+    /* 전송 버튼 */
+    div[data-testid="stForm"] .stButton button,
+    div[data-testid="stForm"] button[kind="primaryFormSubmit"] {
+        height: 54px !important;
+        width: 100% !important;
+        border-radius: 20px !important;
+        border: none !important;
         background-color: #3182f6 !important;
         color: #ffffff !important;
-        margin-right: 10px !important;
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
+        box-shadow: none !important;
     }
 
-    [data-testid="stChatInput"] button:hover {
+    div[data-testid="stForm"] .stButton button:hover,
+    div[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover {
         background-color: #1b64da !important;
-    }
-
-    [data-testid="stChatInput"] button svg {
         color: #ffffff !important;
-        stroke: #ffffff !important;
     }
 
-    [data-testid="stChatInput"]:focus-within {
+    /* 보조 버튼 */
+    .clear-button-wrap {
+        margin-top: 10px;
+    }
+
+    .stButton button {
+        border-radius: 16px !important;
+        border: 1px solid #e5e8eb !important;
+        background-color: #ffffff !important;
+        color: #4e5968 !important;
+        font-weight: 700 !important;
+    }
+
+    .stButton button:hover {
         border-color: #3182f6 !important;
-        box-shadow:
-            0 0 0 3px rgba(49, 130, 246, 0.12),
-            0 12px 36px rgba(25, 31, 40, 0.10) !important;
+        color: #3182f6 !important;
     }
 
     a {
@@ -351,7 +358,7 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # =========================
@@ -372,7 +379,7 @@ st.markdown(
         </div>
     </section>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 st.markdown(
@@ -390,7 +397,7 @@ st.markdown(
         </div>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 st.markdown(
@@ -403,7 +410,7 @@ st.markdown(
         </div>
     </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # =========================
@@ -412,7 +419,7 @@ st.markdown(
 openai_api_key = st.text_input(
     "OpenAI API 키",
     type="password",
-    placeholder="sk-..."
+    placeholder="sk-...",
 )
 
 if not openai_api_key:
@@ -438,52 +445,89 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # =========================
-# 사용자 입력
+# 채팅 입력 영역
 # =========================
-if prompt := st.chat_input("무엇이 궁금하신가요?"):
+st.markdown(
+    """
+    <div class="chat-input-card">
+        <div class="chat-input-title">궁금한 것을 물어보세요</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-    # 사용자 메시지 저장
+with st.form("chat_form", clear_on_submit=True):
+    input_col, button_col = st.columns([5, 1.15])
+
+    with input_col:
+        prompt = st.text_input(
+            "질문 입력",
+            placeholder="무엇이 궁금하신가요?",
+            label_visibility="collapsed",
+        )
+
+    with button_col:
+        submitted = st.form_submit_button("전송")
+
+# =========================
+# 답변 생성
+# =========================
+if submitted and prompt.strip():
+    user_prompt = prompt.strip()
+
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": prompt
+            "content": user_prompt,
         }
     )
 
-    # 사용자 메시지 출력
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(user_prompt)
 
-    # OpenAI Responses API용 대화 입력 구성
-    conversation_input = [
+    messages_for_api = [
         {
-            "role": message["role"],
-            "content": message["content"]
-        }
-        for message in st.session_state.messages
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        *[
+            {
+                "role": message["role"],
+                "content": message["content"],
+            }
+            for message in st.session_state.messages
+        ],
     ]
 
-    # 스트리밍 응답 함수
     def generate_response():
-        stream = client.responses.create(
+        stream = client.chat.completions.create(
             model=MODEL,
-            instructions=SYSTEM_PROMPT,
-            input=conversation_input,
+            messages=messages_for_api,
             stream=True,
         )
 
-        for event in stream:
-            if event.type == "response.output_text.delta":
-                yield event.delta
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
 
-    # AI 응답 출력
     with st.chat_message("assistant"):
         response = st.write_stream(generate_response)
 
-    # AI 응답 저장
     st.session_state.messages.append(
         {
             "role": "assistant",
-            "content": response
+            "content": response,
         }
     )
+
+# =========================
+# 대화 초기화
+# =========================
+if st.session_state.messages:
+    st.markdown('<div class="clear-button-wrap">', unsafe_allow_html=True)
+
+    if st.button("대화 초기화"):
+        st.session_state.messages = []
+        st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
