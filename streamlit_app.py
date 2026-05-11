@@ -1,5 +1,6 @@
 import html
 import streamlit as st
+import streamlit.components.v1 as components
 from openai import OpenAI
 
 # =========================
@@ -13,6 +14,18 @@ st.set_page_config(
 )
 
 MODEL = "gpt-4o-mini"
+
+# =========================
+# 세션 상태
+# =========================
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if "openai_api_key" not in st.session_state:
+    st.session_state.openai_api_key = ""
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # =========================
 # 알쓸 시리즈 실제 패널 기반 퍼소나
@@ -236,18 +249,24 @@ BASE_SYSTEM_PROMPT = """
 사용자는 오늘 알쓸 시리즈 녹화 현장에 게스트로 나온 사람이다.
 사용자가 질문하면 패널들이 각자의 전문 관점으로 대답해주는 느낌을 만들어야 한다.
 
-중요한 원칙:
+중요한 안전 원칙:
 - 실제 인물을 사칭하지 않는다.
 - 실제 인물의 정확한 말투, 사적인 성격, 개인적 의견을 흉내 내지 않는다.
 - 공개적으로 알려진 방송 내 역할과 전문 분야를 바탕으로 한 '관점형 패널'로만 답변한다.
+- "제가 실제 김상욱입니다"처럼 말하지 않는다.
+- 대신 "김상욱 패널 관점에서 보면"처럼 표현한다.
+
+공통 답변 원칙:
 - 반드시 한국어로 답변한다.
 - 강의문, 보고서, 백과사전 문체를 피한다.
-- 사용자를 게스트처럼 자연스럽게 받아준다.
+- 사용자를 '게스트님'처럼 대화에 참여한 사람으로 대우한다.
 - 단순 정보 나열보다 '왜 그런지'와 '어떻게 연결되는지'를 중심으로 설명한다.
 - 어려운 개념은 일상적인 비유로 풀어준다.
 - 답변은 너무 짧지 않게, 하지만 과하게 장황하지 않게 작성한다.
-- 마지막에는 사용자가 이어서 물어볼 만한 질문을 자연스럽게 덧붙인다.
+- 확실하지 않은 정보는 단정하지 않고 확인이 필요하다고 말한다.
+- 마지막에는 사용자가 이어서 물어볼 만한 질문을 자연스럽게 제안한다.
 - 마크다운 제목(#, ##)은 쓰지 않는다.
+- 실제 패널들이 한 테이블에서 대화하는 것처럼 자연스러운 문단으로 작성한다.
 """
 
 def build_system_prompt(persona_key):
@@ -281,14 +300,14 @@ def build_system_prompt(persona_key):
 {all_panel_summary}
 
 통합 패널 모드의 답변 방식:
-- 질문에 가장 적절한 패널 1명이 답할 수도 있다.
-- 여러 관점이 필요하면 2~4명의 패널이 차례로 짧게 이야기해도 된다.
-- 각 발화는 자연스럽게 패널 이름을 붙여 시작한다.
-  예: "🧲 김상욱 패널 관점에서 보면, ..."
-  예: "🏛️ 유현준 패널 관점에서는, ..."
-  예: "🧠 박지선 패널 관점에서 보면, ..."
-- 여러 명이 말할 때는 진짜 한 테이블에서 이어서 말하는 느낌을 준다.
-- 분야별 목록처럼 딱딱하게 나열하지 말고, 하나의 대화처럼 이어지게 답한다.
+- 사용자의 질문을 보고 가장 적절한 패널을 1명 선택해 답변해도 된다.
+- 여러 분야의 관점이 함께 필요하면 2~4명의 패널이 차례로 짧게 이야기해도 된다.
+- 답변에는 패널 이름을 자연스럽게 붙인다.
+- 각 패널은 "저는 이 질문을 이렇게 봅니다", "저는 조금 다른 쪽에서 보면요"처럼 자기 관점을 구어체로 말한다.
+- 단, 실제 인물 본인처럼 사칭하지 않고 '패널 관점'으로 말한다.
+- 여러 명이 말할 때는 서로 다른 지식을 가진 사람들이 한 테이블에서 이야기하는 느낌을 준다.
+- 분야별 목록처럼 딱딱하게 나열하지 말고, 하나의 대화처럼 이어지게 답변한다.
+- 사용자가 방송의 게스트로 참여한 듯이, 질문을 받아서 패널들이 대화해주는 느낌을 만든다.
 """
 
     return f"""
@@ -303,14 +322,17 @@ def build_system_prompt(persona_key):
 
 답변 방식:
 - 답변 첫 문장은 반드시 "{persona["emoji"]} {persona["name"]} 관점에서 보면,"으로 시작한다.
-- 사용자가 게스트로 질문한 것처럼 자연스럽게 받아준다.
-- "좋은 질문이에요", "이건 생각보다 재밌는 지점이 있어요" 같은 구어체를 사용해도 된다.
+- 답변 중간에는 "저는 이 부분이 중요하다고 봐요", "제가 보기에는요", "이걸 조금 다르게 말하면요"처럼 구어체 자기 지칭을 자연스럽게 사용한다.
+- 실제 인물을 사칭하지 말고, 해당 패널의 공개된 전문 분야와 방송 내 역할에 기반한 관점으로만 답한다.
+- 사용자가 알쓸 시리즈 게스트로 질문한 것처럼 자연스럽게 받아준다.
+- "좋은 질문이에요", "이건 생각보다 재밌는 지점이 있어요"처럼 구어체를 사용할 수 있다.
+- 다만 너무 가볍거나 장난스럽게 흐르지 않도록 한다.
 - 선택된 패널의 전문 관점이 답변의 중심이 되어야 한다.
-- 필요하면 다른 분야의 맥락을 한두 문장 정도 덧붙인다.
+- 필요하면 다른 분야의 맥락을 한두 문장 정도 곁들인다.
 """
 
 # =========================
-# CSS
+# CSS - DARK MODE
 # =========================
 st.markdown(
     """
@@ -319,9 +341,11 @@ st.markdown(
         color-scheme: dark;
     }
 
-    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-        background: #0b0d12 !important;
-        color: #f3f4f6 !important;
+    html, body, .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background-color: #0b0d12 !important;
+        color: #f5f7fa !important;
     }
 
     .stApp {
@@ -332,19 +356,13 @@ st.markdown(
     .block-container {
         max-width: 760px;
         padding-top: 56px;
-        padding-bottom: 180px;
+        padding-bottom: 96px;
     }
 
     #MainMenu, footer, header {
         visibility: hidden;
     }
 
-    /* 기본 텍스트 */
-    p, div, span, label {
-        color: #f3f4f6;
-    }
-
-    /* Hero */
     .hero {
         margin-bottom: 28px;
     }
@@ -354,8 +372,8 @@ st.markdown(
         align-items: center;
         padding: 7px 12px;
         border-radius: 999px;
-        background-color: #182033;
-        color: #7fb2ff;
+        background-color: #1a2233;
+        color: #7eb0ff;
         font-size: 13px;
         font-weight: 700;
         letter-spacing: -0.02em;
@@ -367,32 +385,31 @@ st.markdown(
         font-weight: 800;
         line-height: 1.24;
         letter-spacing: -0.05em;
-        color: #f8fafc;
+        color: #f5f7fa;
         margin-bottom: 14px;
     }
 
     .hero-desc {
         font-size: 16px;
         line-height: 1.75;
-        color: #9aa4b2;
+        color: #aeb7c6;
         letter-spacing: -0.02em;
         max-width: 640px;
     }
 
-    /* Card */
     .card {
-        background: #12161f;
-        border: 1px solid #222938;
+        background-color: #141821;
+        border: 1px solid #232a36;
         border-radius: 28px;
         padding: 24px;
         margin-bottom: 18px;
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
     }
 
     .card-title {
         font-size: 18px;
         font-weight: 800;
-        color: #f8fafc;
+        color: #f5f7fa;
         letter-spacing: -0.03em;
         margin-bottom: 8px;
     }
@@ -400,31 +417,30 @@ st.markdown(
     .card-desc {
         font-size: 14px;
         line-height: 1.7;
-        color: #9aa4b2;
+        color: #aeb7c6;
         letter-spacing: -0.02em;
     }
 
     .soft-divider {
         width: 100%;
         height: 1px;
-        background-color: #202736;
+        background-color: #232a36;
         margin: 30px 0 22px 0;
     }
 
-    /* Persona */
     .persona-card {
-        background: #12161f;
-        border: 1px solid #222938;
+        background-color: #141821;
+        border: 1px solid #232a36;
         border-radius: 28px;
         padding: 22px 24px;
         margin: 14px 0 18px 0;
-        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
     }
 
     .persona-kicker {
         font-size: 13px;
         font-weight: 700;
-        color: #7fb2ff;
+        color: #7eb0ff;
         letter-spacing: -0.02em;
         margin-bottom: 8px;
     }
@@ -432,7 +448,7 @@ st.markdown(
     .persona-title {
         font-size: 20px;
         font-weight: 850;
-        color: #f8fafc;
+        color: #f5f7fa;
         letter-spacing: -0.04em;
         margin-bottom: 8px;
     }
@@ -440,7 +456,7 @@ st.markdown(
     .persona-desc {
         font-size: 14px;
         line-height: 1.7;
-        color: #9aa4b2;
+        color: #aeb7c6;
         letter-spacing: -0.02em;
     }
 
@@ -452,98 +468,83 @@ st.markdown(
     }
 
     .question-chip {
-        background: #0f141d;
-        border: 1px solid #202736;
+        background-color: #0f131b;
+        border: 1px solid #232a36;
         border-radius: 18px;
         padding: 13px 15px;
         font-size: 14px;
         line-height: 1.55;
-        color: #d7dce3;
+        color: #c5cfdb;
         letter-spacing: -0.02em;
     }
 
-    /* Text Input */
     .stTextInput label,
     .stSelectbox label {
         font-size: 14px !important;
         font-weight: 700 !important;
-        color: #c5ccd6 !important;
+        color: #c5cfdb !important;
         letter-spacing: -0.02em !important;
     }
 
     .stTextInput input {
         height: 50px !important;
         border-radius: 16px !important;
-        border: 1px solid #2a3242 !important;
-        background: #11151e !important;
-        color: #f3f4f6 !important;
-        -webkit-text-fill-color: #f3f4f6 !important;
+        border: 1px solid #2a3341 !important;
+        background-color: #121722 !important;
+        color: #f5f7fa !important;
+        -webkit-text-fill-color: #f5f7fa !important;
         font-size: 15px !important;
         padding: 0 15px !important;
         box-shadow: none !important;
     }
 
     .stTextInput input::placeholder {
-        color: #7d8796 !important;
+        color: #7d8899 !important;
         opacity: 1 !important;
-        -webkit-text-fill-color: #7d8796 !important;
+        -webkit-text-fill-color: #7d8899 !important;
     }
 
     .stTextInput input:focus {
-        border-color: #4e8fff !important;
-        box-shadow: 0 0 0 3px rgba(78, 143, 255, 0.18) !important;
+        border-color: #4e8cff !important;
+        box-shadow: 0 0 0 3px rgba(78, 140, 255, 0.16) !important;
     }
 
     .stAlert {
         border-radius: 18px !important;
-        border: 1px solid #20304d !important;
-        background: #101a2a !important;
-        color: #cfd7e3 !important;
+        border: 1px solid #23304a !important;
+        background-color: #131d2e !important;
+        color: #d8e4ff !important;
     }
 
-    /* Selectbox */
     [data-baseweb="select"] > div {
-        background: #11151e !important;
-        border: 1px solid #2a3242 !important;
+        background-color: #121722 !important;
+        border: 1px solid #2a3341 !important;
         border-radius: 16px !important;
         min-height: 50px !important;
         box-shadow: none !important;
     }
 
-    [data-baseweb="select"] * {
-        color: #f3f4f6 !important;
+    [data-baseweb="select"] span,
+    [data-baseweb="select"] div {
+        color: #f5f7fa !important;
+        font-size: 15px !important;
     }
 
-    div[data-baseweb="popover"] {
-        background: transparent !important;
+    div[role="listbox"] {
+        background-color: #121722 !important;
+        border: 1px solid #2a3341 !important;
+        color: #f5f7fa !important;
     }
 
-    div[data-baseweb="popover"] > div {
-        background: #11151e !important;
-        border: 1px solid #2a3242 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 18px 36px rgba(0,0,0,0.45) !important;
+    div[role="option"] {
+        background-color: #121722 !important;
+        color: #f5f7fa !important;
     }
 
-    ul[role="listbox"] {
-        background: #11151e !important;
-        color: #f3f4f6 !important;
+    div[role="option"]:hover {
+        background-color: #1a2331 !important;
     }
 
-    li[role="option"] {
-        background: #11151e !important;
-        color: #f3f4f6 !important;
-    }
-
-    li[role="option"]:hover {
-        background: #1a2130 !important;
-    }
-
-    li[role="option"][aria-selected="true"] {
-        background: #222b3d !important;
-    }
-
-    /* Custom Chat Messages */
     .message-row {
         display: flex;
         width: 100%;
@@ -576,7 +577,7 @@ st.markdown(
     .message-label {
         font-size: 12px;
         font-weight: 800;
-        color: #7d8796;
+        color: #8893a5;
         letter-spacing: -0.02em;
         padding: 0 4px;
     }
@@ -595,60 +596,61 @@ st.markdown(
         background: linear-gradient(135deg, #3b82f6, #2563eb);
         color: #ffffff;
         border-top-right-radius: 8px;
-        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
+        box-shadow: 0 8px 22px rgba(37, 99, 235, 0.25);
     }
 
     .message-bubble.assistant {
-        background: #12161f;
-        color: #f3f4f6;
-        border: 1px solid #222938;
+        background-color: #141821;
+        color: #f5f7fa;
+        border: 1px solid #232a36;
         border-top-left-radius: 8px;
-        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
     }
 
-    /* Chat Input */
     [data-testid="stBottom"],
     [data-testid="stBottomBlockContainer"],
     [data-testid="stChatFloatingInputContainer"] {
         background: linear-gradient(
             180deg,
-            rgba(11,13,18,0),
-            rgba(11,13,18,0.94) 24%,
-            rgba(11,13,18,1) 100%
+            rgba(11, 13, 18, 0),
+            rgba(11, 13, 18, 0.88) 18%,
+            rgba(11, 13, 18, 1) 100%
         ) !important;
-        border-top: 1px solid rgba(34,41,56,0.8) !important;
+        border-top: 1px solid rgba(35, 42, 54, 0.9) !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
     }
 
     [data-testid="stChatInput"] {
         max-width: 760px !important;
-        margin: 0 auto 18px auto !important;
-        background: #12161f !important;
-        border: 1px solid #2a3242 !important;
+        margin: 0 auto 6px auto !important;
+        background-color: #141821 !important;
+        border: 1px solid #2a3341 !important;
         border-radius: 28px !important;
         box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38) !important;
         overflow: hidden !important;
     }
 
     [data-testid="stChatInput"] > div {
-        background: #12161f !important;
+        background-color: #141821 !important;
         border-radius: 28px !important;
     }
 
     [data-testid="stChatInput"] textarea {
-        min-height: 56px !important;
-        color: #f3f4f6 !important;
-        -webkit-text-fill-color: #f3f4f6 !important;
-        background: #12161f !important;
+        min-height: 54px !important;
+        color: #f5f7fa !important;
+        -webkit-text-fill-color: #f5f7fa !important;
+        background-color: #141821 !important;
         font-size: 15px !important;
         line-height: 1.55 !important;
         letter-spacing: -0.02em !important;
-        padding: 17px 18px !important;
+        padding: 16px 18px !important;
     }
 
     [data-testid="stChatInput"] textarea::placeholder {
-        color: #7d8796 !important;
+        color: #7d8899 !important;
         opacity: 1 !important;
-        -webkit-text-fill-color: #7d8796 !important;
+        -webkit-text-fill-color: #7d8899 !important;
     }
 
     [data-testid="stChatInput"] button {
@@ -656,13 +658,13 @@ st.markdown(
         height: 40px !important;
         min-width: 40px !important;
         border-radius: 999px !important;
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        background-color: #3b82f6 !important;
         color: #ffffff !important;
         margin-right: 10px !important;
     }
 
     [data-testid="stChatInput"] button:hover {
-        background: linear-gradient(135deg, #4b8df8, #2e6df0) !important;
+        background-color: #2563eb !important;
     }
 
     [data-testid="stChatInput"] button svg {
@@ -672,27 +674,28 @@ st.markdown(
 
     .stButton button {
         border-radius: 16px !important;
-        border: 1px solid #2a3242 !important;
-        background: #12161f !important;
-        color: #d7dce3 !important;
+        border: 1px solid #2a3341 !important;
+        background-color: #141821 !important;
+        color: #c5cfdb !important;
         font-weight: 700 !important;
     }
 
     .stButton button p {
-        color: #d7dce3 !important;
+        color: #c5cfdb !important;
     }
 
     .stButton button:hover {
-        border-color: #4e8fff !important;
-        color: #7fb2ff !important;
+        border-color: #4e8cff !important;
+        color: #7eb0ff !important;
+        background-color: #171d29 !important;
     }
 
     .stButton button:hover p {
-        color: #7fb2ff !important;
+        color: #7eb0ff !important;
     }
 
     a {
-        color: #7fb2ff !important;
+        color: #7eb0ff !important;
         text-decoration: none !important;
         font-weight: 700 !important;
     }
@@ -708,7 +711,7 @@ st.markdown(
 
         [data-testid="stChatInput"] {
             width: calc(100vw - 28px) !important;
-            margin-bottom: 14px !important;
+            margin-bottom: 6px !important;
         }
     }
     </style>
@@ -719,6 +722,42 @@ st.markdown(
 # =========================
 # 유틸 함수
 # =========================
+def scroll_to_bottom():
+    components.html(
+        """
+        <script>
+        const scrollToBottom = () => {
+            try {
+                const parentWindow = window.parent;
+                const parentDocument = parentWindow.document;
+
+                parentWindow.scrollTo({
+                    top: parentDocument.body.scrollHeight,
+                    behavior: "smooth"
+                });
+
+                const app = parentDocument.querySelector('[data-testid="stAppViewContainer"]');
+                if (app) {
+                    app.scrollTop = app.scrollHeight;
+                }
+
+                const main = parentDocument.querySelector('[data-testid="stMain"]');
+                if (main) {
+                    main.scrollTop = main.scrollHeight;
+                }
+            } catch (e) {
+                console.log("scroll failed", e);
+            }
+        };
+
+        setTimeout(scrollToBottom, 100);
+        setTimeout(scrollToBottom, 400);
+        setTimeout(scrollToBottom, 900);
+        </script>
+        """,
+        height=0,
+    )
+
 def render_message(role, content, speaker_label=None):
     safe_content = html.escape(content)
 
@@ -772,214 +811,241 @@ def get_assistant_label(persona_key):
     return f'{persona["emoji"]} {persona["name"]}'
 
 # =========================
-# 상단 콘텐츠
+# API 인증 화면
 # =========================
-st.markdown(
-    """
-    <section class="hero">
-        <div class="hero-badge">알아두면 쓸데 있는 대화</div>
-        <div class="hero-title">
-            오늘의 게스트처럼 묻고,<br>
-            패널처럼 답변을 들어보세요
-        </div>
-        <div class="hero-desc">
-            알쓸 시리즈의 패널 관점을 바탕으로 질문해보세요.
-            사소한 궁금증도 한 테이블 위의 대화처럼 자연스럽게 풀어드립니다.
-        </div>
-    </section>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================
-# 패널 선택
-# =========================
-persona_keys = list(PERSONAS.keys())
-
-selected_persona_key = st.selectbox(
-    "오늘 질문할 패널을 선택해주세요",
-    options=persona_keys,
-    format_func=lambda key: f'{PERSONAS[key]["emoji"]} {PERSONAS[key]["name"]}',
-)
-
-selected_persona = PERSONAS[selected_persona_key]
-
-st.markdown(
-    f"""
-    <div class="persona-card">
-        <div class="persona-kicker">오늘의 패널</div>
-        <div class="persona-title">
-            {selected_persona["emoji"]} {selected_persona["name"]}
-        </div>
-        <div class="persona-desc">
-            {selected_persona["desc"]}
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-example_html = ""
-for question in selected_persona["examples"]:
-    example_html += f'<div class="question-chip">{html.escape(question)}</div>'
-
-st.markdown(
-    f"""
-    <div class="card">
-        <div class="card-title">이런 질문을 해볼 수 있어요</div>
-        <div class="card-desc">
-            선택한 패널의 관점에 맞춰 질문 예시가 달라집니다.
-            통합 패널을 선택하면 질문에 따라 여러 패널이 함께 답변할 수 있어요.
-        </div>
-        <div class="question-grid">
-            {example_html}
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown(
-    """
-    <div class="card">
-        <div class="card-title">대화를 시작하기 전에</div>
-        <div class="card-desc">
-            OpenAI API 키를 입력하면 바로 대화를 시작할 수 있어요.
-            입력한 키는 현재 세션에서만 사용됩니다.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================
-# API 키 입력
-# =========================
-openai_api_key = st.text_input(
-    "OpenAI API 키",
-    type="password",
-    placeholder="sk-...",
-)
-
-if not openai_api_key:
-    st.info("API 키를 입력하면 챗봇을 사용할 수 있어요.", icon="🗝️")
-    st.stop()
-
-client = OpenAI(api_key=openai_api_key)
-
-# =========================
-# 세션 상태
-# =========================
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# =========================
-# 대화 영역
-# =========================
-if st.session_state.messages:
-    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
-
-chat_container = st.container()
-
-with chat_container:
-    for message in st.session_state.messages:
-        render_message(
-            role=message["role"],
-            content=message["content"],
-            speaker_label=message.get("speaker_label"),
-        )
-
-# =========================
-# 대화 초기화
-# =========================
-if st.session_state.messages:
-    if st.button("대화 초기화"):
-        st.session_state.messages = []
-        st.rerun()
-
-# =========================
-# 하단 고정 입력창
-# =========================
-prompt = st.chat_input(
-    f'🎙️ 게스트 질문석 · {selected_persona["emoji"]} {selected_persona["name"]}에게 물어보세요'
-)
-
-# =========================
-# 답변 생성
-# =========================
-if prompt and prompt.strip():
-    user_prompt = prompt.strip()
-    assistant_label = get_assistant_label(selected_persona_key)
-
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_prompt,
-            "speaker_label": "🎙️ 오늘의 게스트",
-        }
+def render_auth_screen():
+    st.markdown(
+        """
+        <section class="hero">
+            <div class="hero-badge">알아두면 쓸데 있는 대화</div>
+            <div class="hero-title">
+                오늘의 게스트처럼 묻고,<br>
+                패널처럼 답변을 들어보세요
+            </div>
+            <div class="hero-desc">
+                알쓸 시리즈의 패널 관점을 바탕으로 질문해보세요.
+                먼저 OpenAI API 키를 인증하면 채팅 화면으로 이동합니다.
+            </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
     )
 
-    messages_for_api = [
-        {
-            "role": "system",
-            "content": build_system_prompt(selected_persona_key),
-        },
-        *[
-            {
-                "role": message["role"],
-                "content": message["content"],
-            }
-            for message in st.session_state.messages
-        ],
-    ]
+    st.markdown(
+        """
+        <div class="card">
+            <div class="card-title">API 키 인증</div>
+            <div class="card-desc">
+                입력한 API 키는 현재 세션에서만 사용됩니다.
+                인증 후 바로 게스트 질문석으로 이동합니다.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    def generate_response():
-        stream = client.chat.completions.create(
-            model=MODEL,
-            messages=messages_for_api,
-            stream=True,
+    with st.form("api_key_form"):
+        api_key = st.text_input(
+            "OpenAI API 키",
+            type="password",
+            placeholder="sk-...",
         )
+        submitted = st.form_submit_button("채팅 화면으로 이동")
 
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+    if submitted:
+        if api_key.strip():
+            st.session_state.openai_api_key = api_key.strip()
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.warning("API 키를 입력해주세요.")
+
+# =========================
+# 채팅 화면
+# =========================
+def render_chat_screen():
+    client = OpenAI(api_key=st.session_state.openai_api_key)
+
+    st.markdown(
+        """
+        <section class="hero">
+            <div class="hero-badge">알아두면 쓸데 있는 대화</div>
+            <div class="hero-title">
+                오늘의 게스트처럼 묻고,<br>
+                패널처럼 답변을 들어보세요
+            </div>
+            <div class="hero-desc">
+                알쓸 시리즈의 패널 관점을 바탕으로 질문해보세요.
+                사소한 궁금증도 한 테이블 위의 대화처럼 자연스럽게 풀어드립니다.
+            </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    persona_keys = list(PERSONAS.keys())
+
+    selected_persona_key = st.selectbox(
+        "오늘 질문할 패널을 선택해주세요",
+        options=persona_keys,
+        format_func=lambda key: f'{PERSONAS[key]["emoji"]} {PERSONAS[key]["name"]}',
+    )
+
+    selected_persona = PERSONAS[selected_persona_key]
+
+    st.markdown(
+        f"""
+        <div class="persona-card">
+            <div class="persona-kicker">오늘의 패널</div>
+            <div class="persona-title">
+                {selected_persona["emoji"]} {selected_persona["name"]}
+            </div>
+            <div class="persona-desc">
+                {selected_persona["desc"]}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    example_html = ""
+    for question in selected_persona["examples"]:
+        example_html += f'<div class="question-chip">{html.escape(question)}</div>'
+
+    st.markdown(
+        f"""
+        <div class="card">
+            <div class="card-title">이런 질문을 해볼 수 있어요</div>
+            <div class="card-desc">
+                선택한 패널의 관점에 맞춰 질문 예시가 달라집니다.
+                통합 패널을 선택하면 질문에 따라 여러 패널이 함께 답변할 수 있어요.
+            </div>
+            <div class="question-grid">
+                {example_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if st.session_state.messages:
+        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
+    chat_container = st.container()
 
     with chat_container:
-        render_message(
-            role="user",
-            content=user_prompt,
-            speaker_label="🎙️ 오늘의 게스트",
+        for message in st.session_state.messages:
+            render_message(
+                role=message["role"],
+                content=message["content"],
+                speaker_label=message.get("speaker_label"),
+            )
+
+    col1, col2 = st.columns([1, 4])
+
+    with col1:
+        if st.session_state.messages:
+            if st.button("대화 초기화"):
+                st.session_state.messages = []
+                st.rerun()
+
+    with col2:
+        if st.button("API 키 변경"):
+            st.session_state.authenticated = False
+            st.session_state.openai_api_key = ""
+            st.session_state.messages = []
+            st.rerun()
+
+    prompt = st.chat_input(
+        f'🎙️ 게스트 질문석 · {selected_persona["emoji"]} {selected_persona["name"]}에게 물어보세요'
+    )
+
+    if prompt and prompt.strip():
+        user_prompt = prompt.strip()
+        assistant_label = get_assistant_label(selected_persona_key)
+
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": user_prompt,
+                "speaker_label": "🎙️ 오늘의 게스트",
+            }
         )
 
-        assistant_placeholder = st.empty()
-        response = ""
+        messages_for_api = [
+            {
+                "role": "system",
+                "content": build_system_prompt(selected_persona_key),
+            },
+            *[
+                {
+                    "role": message["role"],
+                    "content": message["content"],
+                }
+                for message in st.session_state.messages
+            ],
+        ]
 
-        try:
-            for chunk in generate_response():
-                response += chunk
+        def generate_response():
+            stream = client.chat.completions.create(
+                model=MODEL,
+                messages=messages_for_api,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+
+        with chat_container:
+            render_message(
+                role="user",
+                content=user_prompt,
+                speaker_label="🎙️ 오늘의 게스트",
+            )
+
+            assistant_placeholder = st.empty()
+            response = ""
+
+            try:
+                for chunk in generate_response():
+                    response += chunk
+                    render_assistant_stream(
+                        placeholder=assistant_placeholder,
+                        content=response,
+                        speaker_label=assistant_label,
+                    )
+                    scroll_to_bottom()
+
+            except Exception as error:
+                response = (
+                    "답변을 생성하는 중 문제가 발생했어요. "
+                    "API 키, 모델명, 사용량 한도, 또는 현재 계정에서 사용할 수 있는 모델인지 확인해주세요.\n\n"
+                    f"오류 내용: {error}"
+                )
                 render_assistant_stream(
                     placeholder=assistant_placeholder,
                     content=response,
                     speaker_label=assistant_label,
                 )
 
-        except Exception as error:
-            response = (
-                "답변을 생성하는 중 문제가 발생했어요. "
-                "API 키, 모델명, 사용량 한도, 또는 현재 계정에서 사용할 수 있는 모델인지 확인해주세요.\n\n"
-                f"오류 내용: {error}"
-            )
-            render_assistant_stream(
-                placeholder=assistant_placeholder,
-                content=response,
-                speaker_label=assistant_label,
-            )
+        st.session_state.messages.append(
+            {
+                "role": "assistant",
+                "content": response,
+                "speaker_label": assistant_label,
+            }
+        )
 
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": response,
-            "speaker_label": assistant_label,
-        }
-    )
+        scroll_to_bottom()
+
+    if st.session_state.messages:
+        scroll_to_bottom()
+
+# =========================
+# 화면 라우팅
+# =========================
+if not st.session_state.authenticated:
+    render_auth_screen()
+else:
+    render_chat_screen()
