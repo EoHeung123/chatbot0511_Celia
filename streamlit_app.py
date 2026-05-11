@@ -138,7 +138,7 @@ PERSONAS = {
     "kwon_ilyong": {
         "emoji": "🕵️",
         "name": "권일용 패널",
-        "series": "알쓸범잡",
+        "series": "알쓸범잡2",
         "role": "프로파일링, 범죄 심리, 수사 경험 관점의 패널",
         "desc": "범죄를 단순 사건이 아니라 인간 심리, 수사 과정, 예방의 관점에서 설명합니다.",
         "voice": "사건을 자극적으로 다루지 않고, 경험 기반으로 차분하고 현실감 있게 설명합니다.",
@@ -152,7 +152,7 @@ PERSONAS = {
         "emoji": "⚖️",
         "name": "정재민 패널",
         "series": "알쓸범잡",
-        "role": "법, 판례, 제도, 범죄와 처벌의 관점의 패널",
+        "role": "법, 판례, 제도, 범죄와 처벌 관점의 패널",
         "desc": "범죄와 사회 문제를 법적 기준, 제도, 판결의 구조로 설명합니다.",
         "voice": "법률 용어를 쉽게 풀어주고, 사건이 제도 안에서 어떻게 판단되는지 차분하게 설명합니다.",
         "examples": [
@@ -164,7 +164,7 @@ PERSONAS = {
     "jang_kangmyoung": {
         "emoji": "📰",
         "name": "장강명 패널",
-        "series": "알쓸범잡",
+        "series": "알쓸범잡2",
         "role": "취재, 사회 관찰, 소설적 서사 관점의 패널",
         "desc": "사회적 사건을 취재자의 시선과 이야기 구조의 관점으로 풀어봅니다.",
         "voice": "사건의 표면보다 그 사건이 놓인 사회적 맥락과 이야기 구조를 짚어줍니다.",
@@ -345,7 +345,7 @@ st.markdown(
     .block-container {
         max-width: 760px;
         padding-top: 56px;
-        padding-bottom: 250px;
+        padding-bottom: 180px;
     }
 
     #MainMenu,
@@ -470,7 +470,6 @@ st.markdown(
     }
 
     .stTextInput label,
-    .stTextArea label,
     .stSelectbox label {
         font-size: 14px !important;
         font-weight: 700 !important;
@@ -583,113 +582,68 @@ st.markdown(
         box-shadow: 0 6px 18px rgba(25, 31, 40, 0.04);
     }
 
-    [data-testid="stForm"] {
-        position: fixed !important;
-        left: 50% !important;
-        bottom: 22px !important;
-        transform: translateX(-50%) !important;
-        width: min(760px, calc(100vw - 44px)) !important;
-        z-index: 9999 !important;
+    /* Streamlit 기본 채팅 입력창: position 직접 건드리지 않음 */
+    [data-testid="stBottom"],
+    [data-testid="stBottomBlockContainer"],
+    [data-testid="stChatFloatingInputContainer"] {
+        background: linear-gradient(
+            180deg,
+            rgba(249, 250, 251, 0),
+            rgba(249, 250, 251, 0.96) 24%,
+            rgba(249, 250, 251, 1) 100%
+        ) !important;
+        border-top: 1px solid rgba(237, 240, 242, 0.8) !important;
+    }
 
+    [data-testid="stChatInput"] {
+        max-width: 760px !important;
+        margin: 0 auto 18px auto !important;
+        background-color: #ffffff !important;
         border: 1px solid #e5e8eb !important;
         border-radius: 28px !important;
-        padding: 16px !important;
-        background-color: rgba(255, 255, 255, 0.96) !important;
-        backdrop-filter: blur(18px) !important;
-        -webkit-backdrop-filter: blur(18px) !important;
         box-shadow: 0 18px 48px rgba(25, 31, 40, 0.14) !important;
+        overflow: hidden !important;
     }
 
-    [data-testid="stForm"] [data-testid="stVerticalBlock"] {
-        gap: 12px !important;
-    }
-
-    .guest-seat-title {
-        font-size: 14px;
-        font-weight: 850;
-        color: #191f28;
-        letter-spacing: -0.03em;
-        margin-bottom: -2px;
-    }
-
-    .guest-seat-subtitle {
-        font-size: 13px;
-        font-weight: 600;
-        color: #6b7684;
-        letter-spacing: -0.02em;
-        margin-bottom: 4px;
-    }
-
-    [data-testid="InputInstructions"] {
-        display: none !important;
-    }
-
-    [data-testid="stTextArea"] div[data-baseweb="textarea"] {
-        border: 1px solid #edf0f2 !important;
-        border-radius: 20px !important;
-        background-color: #f9fafb !important;
-        box-shadow: none !important;
-        min-height: 54px !important;
-    }
-
-    [data-testid="stTextArea"] div[data-baseweb="textarea"]:focus-within {
-        border-color: #3182f6 !important;
+    [data-testid="stChatInput"] > div {
         background-color: #ffffff !important;
-        box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12) !important;
+        border-radius: 28px !important;
     }
 
-    [data-testid="stTextArea"] textarea {
-        min-height: 54px !important;
-        max-height: 120px !important;
-        resize: none !important;
-        border: none !important;
-        outline: none !important;
-        background-color: transparent !important;
+    [data-testid="stChatInput"] textarea {
+        min-height: 56px !important;
         color: #191f28 !important;
         -webkit-text-fill-color: #191f28 !important;
+        background-color: #ffffff !important;
         font-size: 15px !important;
         line-height: 1.55 !important;
         letter-spacing: -0.02em !important;
-        padding: 14px 16px !important;
-        box-shadow: none !important;
+        padding: 17px 18px !important;
     }
 
-    [data-testid="stTextArea"] textarea::placeholder {
+    [data-testid="stChatInput"] textarea::placeholder {
         color: #8b95a1 !important;
         opacity: 1 !important;
         -webkit-text-fill-color: #8b95a1 !important;
     }
 
-    [data-testid="stFormSubmitButton"] button {
-        height: 54px !important;
-        width: 100% !important;
-        border-radius: 20px !important;
-        border: none !important;
+    [data-testid="stChatInput"] button {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        border-radius: 999px !important;
         background-color: #3182f6 !important;
         color: #ffffff !important;
-        box-shadow: none !important;
-        padding: 0 18px !important;
+        margin-right: 10px !important;
     }
 
-    [data-testid="stFormSubmitButton"] button p {
-        color: #ffffff !important;
-        font-size: 15px !important;
-        font-weight: 850 !important;
-        letter-spacing: -0.02em !important;
-    }
-
-    [data-testid="stFormSubmitButton"] button:hover {
+    [data-testid="stChatInput"] button:hover {
         background-color: #1b64da !important;
-        color: #ffffff !important;
-        border: none !important;
     }
 
-    [data-testid="stFormSubmitButton"] button:hover p {
+    [data-testid="stChatInput"] button svg {
         color: #ffffff !important;
-    }
-
-    .bottom-safe-area {
-        height: 190px;
+        stroke: #ffffff !important;
     }
 
     .stButton button {
@@ -724,14 +678,13 @@ st.markdown(
             font-size: 34px;
         }
 
-        [data-testid="stForm"] {
-            width: calc(100vw - 28px) !important;
-            bottom: 14px !important;
-            padding: 14px !important;
-        }
-
         .message-stack {
             max-width: 90%;
+        }
+
+        [data-testid="stChatInput"] {
+            width: calc(100vw - 28px) !important;
+            margin-bottom: 14px !important;
         }
     }
     </style>
@@ -923,39 +876,14 @@ if st.session_state.messages:
 # =========================
 # 하단 고정 입력창
 # =========================
-with st.form("fixed_guest_question_form", clear_on_submit=True):
-    st.markdown(
-        f"""
-        <div class="guest-seat-title">
-            🎙️ 게스트 질문석
-        </div>
-        <div class="guest-seat-subtitle">
-            {selected_persona["emoji"]} {selected_persona["name"]}에게 궁금한 것을 물어보세요
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    input_col, button_col = st.columns([5, 1.15])
-
-    with input_col:
-        prompt = st.text_area(
-            "질문 입력",
-            placeholder="예: 왜 사람들은 오래된 공간을 더 감성적으로 느낄까요?",
-            label_visibility="collapsed",
-            height=54,
-        )
-
-    with button_col:
-        submitted = st.form_submit_button("질문")
-
-# 입력창에 가려지지 않도록 하단 여백 확보
-st.markdown('<div class="bottom-safe-area"></div>', unsafe_allow_html=True)
+prompt = st.chat_input(
+    f'🎙️ 게스트 질문석 · {selected_persona["emoji"]} {selected_persona["name"]}에게 물어보세요'
+)
 
 # =========================
 # 답변 생성
 # =========================
-if submitted and prompt.strip():
+if prompt and prompt.strip():
     user_prompt = prompt.strip()
     assistant_label = get_assistant_label(selected_persona_key)
 
